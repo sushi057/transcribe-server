@@ -2,11 +2,7 @@ from flask import Flask, request, render_template
 from flask_cors import CORS, cross_origin
 from configs import UNQ_CHARS
 from utils import (
-    CER_from_wavs,
-    ctc_softmax_output_from_wavs,
     load_model,
-    load_wav,
-    plot_losses,
     predict_from_wavs,
 )
 
