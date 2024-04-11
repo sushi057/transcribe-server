@@ -71,11 +71,7 @@ import tensorflow.keras.backend as K
 import tensorflow as tf
 import librosa
 import numpy as np
-import pickle
-import matplotlib.pyplot as plt
-import time
-import edit_distance as ed
-
+import soundfile as sf
 
 # Global configs required for training
 from configs import INPUT_DIM, SR, N_MFCC, HOP_LENGTH, FRAME_SIZE
@@ -103,6 +99,7 @@ def load_wav(dir):
 
 
 def gen_mfcc(arr):
+    # data, samplerate = sf.read(wavs.stream)  # Convert the input to numpy array
     mfccs = (
         librosa.feature.mfcc(y=arr[:-1], sr=SR, n_mfcc=N_MFCC, hop_length=HOP_LENGTH)
         .transpose()
@@ -172,43 +169,6 @@ def batchify(wavs, texts, unq_chars):
     )
 
 
-# U.6
-# Plots lossses from the file
-def plot_losses(dir, optimal_epoch=None):
-    losses = None
-    with open(dir, "rb") as f:
-        losses = pickle.load(f)
-        f.close()
-
-    train_losses, test_losses = losses["train_losses"], losses["test_losses"]
-    epochs = len(train_losses)
-    # print(len(test_losses))
-
-    X = range(1, epochs + 1)
-
-    fig, ax = plt.subplots(1, figsize=(15, 10))
-
-    fig.suptitle(
-        "Train and Test Losses",
-        fontsize=25,
-    )
-
-    ax.set_xlim(0, 72)
-    ax.plot(X, train_losses, color="red", label="Train Loss")
-    ax.plot(X, test_losses, color="green", label="Test Loss")
-
-    plt.rcParams.update({"font.size": 20})
-
-    plt.legend(loc="upper right", frameon=False, fontsize=20)
-    # plt.xlabel("Epochs",{"size":20})
-    # plt.ylabel("Loss", {"size":20})
-
-    if optimal_epoch != None:
-        plt.axvline(x=optimal_epoch, ymax=0.5)
-        # ax.plot(58, 0, 'go', label='marker only')
-        plt.text(optimal_epoch, 35, f"Optimal Epoch at {optimal_epoch}", fontsize=15)
-
-    plt.show()
 
 
 # U.7
@@ -262,94 +222,6 @@ def indices_from_texts(texts_list, unq_chars, unk_idx=1):
         indices_list.append(lst)
 
     return indices_list
-
-
-"""
-Calculates CER( character error rate) from dataset;
-"""
-# U.10
-# CER from mfccs
-
-
-def CER_from_mfccs(model, mfccs, texts, unq_chars, batch_size=100):
-
-    with tf.device(device_name):
-
-        len_mfccs = len(mfccs)
-        batch_count = 0
-        sum_cer = 0
-
-        start_time = time.time()
-        for start in range(0, len_mfccs, batch_size):
-            end = None
-            if start + batch_size < len_mfccs:
-                end = start + batch_size
-            else:
-                end = len_mfccs
-            pred_sentences, pred_indices = predict_from_mfccs(
-                model, mfccs[start:end], unq_chars
-            )
-            actual_indices = indices_from_texts(texts[start:end], unq_chars)
-
-            len_batch_texts = end - start
-            batch_cer = 0
-            for i in range(len_batch_texts):
-
-                pred = pred_indices[i]
-                actu = actual_indices[i]
-
-                sm = ed.SequenceMatcher(pred, actu)
-                ed_dist = sm.distance()
-                batch_cer += ed_dist / len(actu)
-
-            batch_cer /= len_batch_texts
-            batch_count += 1
-            sum_cer += batch_cer
-
-            print(
-                "CER -> {:.2f}%, \t No.of sentences -> {}, \t Time Taken -> {:.2f} secs.".format(
-                    (sum_cer / batch_count) * 100, end, time.time() - start_time
-                )
-            )
-
-        print(
-            "The total time taken for all sentences CER calculation is  {:.2f} secs.".format(
-                time.time() - start_time
-            )
-        )
-        return sum_cer / batch_count
-
-
-# U.11
-# CER from wavs
-
-
-def CER_from_wavs(model, wavs, texts, unq_chars, batch_size=100):
-
-    assert len(wavs) == len(texts)
-
-    len_wavs = len(wavs)
-    for i in range(len_wavs):
-        wavs[i] = gen_mfcc(wavs[i])
-
-    return CER_from_mfccs(model, wavs, texts, unq_chars, batch_size)
-
-
-# U.12
-# CTC softmax probabilities output from mfcc features
-def ctc_softmax_output_from_mfccs(model, mfccs):
-    mfccs = pad_list_np(mfccs)
-    y = model(mfccs)
-    return y
-
-
-# U.13
-# CTC softmax probabilities output from wavs
-
-
-def ctc_softmax_output_from_wavs(model, wavs):
-    mfccs = [gen_mfcc(wav) for wav in wavs]
-    return ctc_softmax_output_from_mfccs(model, mfccs)
 
 
 # U.14
