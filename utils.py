@@ -71,7 +71,7 @@ import tensorflow.keras.backend as K
 import tensorflow as tf
 import librosa
 import numpy as np
-
+import soundfile as sf
 
 # Global configs required for training
 from configs import INPUT_DIM, SR, N_MFCC, HOP_LENGTH, FRAME_SIZE
@@ -99,6 +99,7 @@ def load_wav(dir):
 
 
 def gen_mfcc(arr):
+    # data, samplerate = sf.read(wavs.stream)  # Convert the input to numpy array
     mfccs = (
         librosa.feature.mfcc(y=arr[:-1], sr=SR, n_mfcc=N_MFCC, hop_length=HOP_LENGTH)
         .transpose()
